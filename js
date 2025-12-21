@@ -1,3 +1,4 @@
+// 使用方法：在虚狩加冕之时预约活动首页打开网页控制台，将下面的代码粘贴进去并回车运行后等待15秒
 const canvas = document.getElementById("webglCanvas");
 const stream = canvas.captureStream(60);
 const recorder = new MediaRecorder(stream, {
