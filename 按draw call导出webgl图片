@@ -1,0 +1,78 @@
+//打开网页控制台复制下面的代码并注意修改为自己需要的配置
+(function () {
+    const canvas = document.querySelector('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+
+    const origDrawArrays = gl.drawArrays.bind(gl);
+    const origDrawElements = gl.drawElements.bind(gl);
+
+    // 配置
+    const skipFrom  = 618;    // 从第几条 draw call 开始跳过
+    const skipCount = 75;   // 连续跳过多少条 draw call(75是虚狩加冕之时邀请活动背景中 照 的draw call数量,使用该数量可以导出没有照的背景图）
+
+    const exportFrom  = skipFrom + skipCount; // 跳过完成后开始导出
+    const exportCount = 20;                     // 导出多少张(在不确定后面还有多少条draw call时可以导出全部)
+
+    let drawIndex = 0;
+    let exported = 0;
+
+    function capture(name) {
+        const w = gl.drawingBufferWidth;
+        const h = gl.drawingBufferHeight;
+        const pixels = new Uint8Array(w * h * 4);
+
+        gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+        const img = new ImageData(new Uint8ClampedArray(pixels), w, h);
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').putImageData(img, 0, 0);
+
+        c.toBlob(blob => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+    }
+
+    function handleDraw(originalFn, args) {
+        drawIndex++;
+
+        const skipStart = skipFrom;
+        const skipEnd   = skipFrom + skipCount - 1;
+
+        //跳过指定数量的 draw call
+        if (drawIndex >= skipStart && drawIndex <= skipEnd) {
+            return;
+        }
+
+        //正常渲染
+        originalFn(...args);
+
+        //跳过结束后开始导出
+        if (
+            drawIndex >= exportFrom &&
+            exported < exportCount
+        ) {
+            exported++;
+            capture(`frame_${exported}.png`);
+        }
+    }
+
+    gl.drawArrays = function (...args) {
+        handleDraw(origDrawArrays, args);
+    };
+
+    gl.drawElements = function (...args) {
+        handleDraw(origDrawElements, args);
+    };
+
+    console.log(
+        `WebGL draw skip active.
+Skip from #${skipFrom} for ${skipCount} draws
+Export from #${exportFrom}, count ${exportCount}`
+    );
+})();
